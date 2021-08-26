@@ -1,0 +1,373 @@
+1 Vue(vue4.0)项目中，使用响应式布局插件postcss-px-to-viewport，转成视口
+    地址：https://blog.csdn.net/okboy519/article/details/104180862?utm_medium=distribute.pc_relevant.none-task-blog-OPENSEARCH-8.nonecase&depth_1-utm_source=distribute.pc_relevant.none-task-blog-OPENSEARCH-8.nonecase
+  
+    Px2vw-css转换
+     一：安装插件
+     npm install postcss-px-to-viewport --save-dev
+    二 在项目的根目录下创建一个 postcss.config.js 文件
+       module.exports = {
+    plugins:{
+        autoprefixer:{},
+        "postcss-px-to-viewport":{
+            viewportWidth:375,//视窗的宽度，对应的是我们设计稿的宽度
+            viewportHeight:667,//视窗的高度，对应的是我们设计稿的高度
+            unitPrecision:5,//制定‘px’转换为视窗单位的小数位数（很多时候无法整除）
+            viewportUnit:'vw',//指定需要转换成的视窗单位，建议使用vw
+            selectorBlackList:['ignore','tab-bar','tab-bar-item'],//指定不需要转换的类，
+            minPixelValue:1,//小于或等于‘1px’不转换为视窗单位
+            mediaQuery:false//允许在媒体查询中转换为‘px’
+        },
+
+    }
+ }
+
+
+2  vue自适应pc端界面
+地址：https://www.jianshu.com/p/e99b76a4dace
+依赖
+首先需要安装 vue-cli 脚手架，这里我安装的是 cli3。
+项目初始化完成后，在项目目录中安装 lib-flexible 和 px2rem-loader。
+
+1.  npm i lib-flexible -S
+2.  npm i px2rem-loader -D
+接着在项目入口文件 main.js 中引入 lib-flexible
+
+import 'lib-flexible/flexible.js'
+配置
+在实际开发中得到的设计稿都是 px 单位的，如果手动将 px 转为 rem ，显然是一件较为麻烦的事情，因此可以通过一些工具来帮助我们实现。
+
+vue-cli3 因为减少了对于 webpack 的配置，因此有些文件就被隐藏起来了。可以在文件的根目录下新建一个 vue.config.js 文件，在这个文件里就可以自己增加或修改一些 webpack 配置。
+
+首先添加一个新的 Loader，vue-cli 的文档中也写的非常清楚了，需要在文件中添加一下代码
+
+// vue.config.js
+module.exports = {
+  chainWebpack: config => {
+    config.module
+      .rule('css')
+      .test(/\.css$/)
+      .oneOf('vue')
+      .resourceQuery(/\?vue/)
+      .use('px2rem')
+      .loader('px2rem-loader')
+      .options({
+        remUnit: 192   //代表的是 1rem = ？px  这里假设设计稿是 1920px ，那么这里的比例就是 1/10
+      })
+      .end()
+  }
+}
+此时重启服务器就生效以上配置了。但还是存在一些问题，虽然可以转换为 rem 了，但是计算出来的比例确实 1rem = 54px，这是因为 flexible.js 文件会默认写死了一个比例，我们需要作出一些修改。
+
+
+function refreshRem(){
+      var width = docEl.getBoundingClientRect().width;
+      if (width / dpr > 540) {
+          //  width = 540 * dpr;   就是这里的问题，需要将 540 修改为 width，不将宽度写死就ok了。
+          width = width * dpr;
+      }
+      var rem = width / 10;
+      docEl.style.fontSize = rem + 'px';
+      flexible.rem = win.rem = rem;
+  }
+
+
+vue-cli4中配置移动端自适应postcss-pxtorem
+
+vue-cli创建完项目之后安装amfe-flexible和postcss-pxtorem
+
+
+npm i amfe-flexible -S
+npm i postcss-pxtorem -D
+amfe-flexible来根据屏幕动态改变根元素font-size，postcss-pxtorem把代码中px转为rem;在项目根目录建vue.config.js
+
+vue.config.js内容：
+
+复制代码
+module.exports = {
+  css: {
+    loaderOptions: {
+      postcss: {
+        plugins: [
+          require("autoprefixer")({
+            // 配置使用 autoprefixer
+            overrideBrowserslist: ["last 15 versions"] 
+          }),
+          require("postcss-pxtorem")({
+            rootValue: 75, // 换算的基数
+            // 忽略转换正则匹配项。插件会转化所有的样式的px。比如引入了三方UI，也会被转化。目前我使用 selectorBlackList字段，来过滤
+            //如果个别地方不想转化px。可以简单的使用大写的 PX 或 Px 。
+            selectorBlackList: ["ig"],
+            propList: ["*"],
+            exclude: /node_modules/
+          })
+        ]
+      }
+    }
+  }
+};
+
+
+然后在main.js里引入amfe-flexible
+
+注：如果你创建时候选择了prettier格式化代码而且编译器也装了插件，你的css里不想被转化的"PX"编译器会自动帮你转化为"px"，此时只要在不想转化前一行加上
+
+/* prettier-ignore */即可
+
+
+
+
+从零开始在vue-cli4配置自适应vw布局的实现
+
+安装包
+
+npm install postcss-px-to-viewport -D
+或者
+
+yarn add postcss-px-to-viewport -D
+
+
+配置移动端
+
+在vue.config.js中找到loaderOptions，如果没有的话需要在css属性下增加postcss
+
+css: {
+  extract: IS_PROD,
+  sourceMap: false,
+  loaderOptions: {
+   postcss: {
+    plugins: [
+     require("postcss-px-to-viewport")({
+      unitToConvert: "px",	// 需要转换的单位，默认为"px"
+      viewportWidth: 375,  // 视窗的宽度，对应移动端设计稿的宽度，一般是375
+      // viewportHeight:667,// 视窗的高度，对应的是我们设计稿的高度
+      unitPrecision: 3,		// 单位转换后保留的精度
+      propList: [		// 能转化为vw的属性列表
+       "*"
+      ],
+      viewportUnit: "vw",		// 希望使用的视口单位
+      fontViewportUnit: "vw",		// 字体使用的视口单位
+      selectorBlackList: [],	// 需要忽略的CSS选择器，不会转为视口单位，使用原有的px等单位。
+      minPixelValue: 1,		// 设置最小的转换数值，如果为1的话，只有大于1的值会被转换
+      mediaQuery: false,		// 媒体查询里的单位是否需要转换单位
+      replace: true,		// 是否直接更换属性值，而不添加备用属性
+      exclude: /(/|\)(node_modules)(/|\)/,		// 忽略某些文件夹下的文件或特定文件，例如 "node_modules" 下的文件
+     })
+    ]
+   }
+  }
+ },
+
+配置pc端
+
+css: {
+  extract: IS_PROD,
+  sourceMap: false,
+  loaderOptions: {
+   postcss: {
+    plugins: [
+     require("postcss-px-to-viewport")({
+      unitToConvert: "px",	// 需要转换的单位，默认为"px"
+      viewportWidth: 1920,  // 视窗的宽度，对应pc设计稿的宽度，一般是1920
+      // viewportHeight: 1080,// 视窗的高度，对应的是我们设计稿的高度
+      unitPrecision: 3,		// 单位转换后保留的精度
+      propList: [		// 能转化为vw的属性列表
+       "*"
+      ],
+      viewportUnit: "vw",		// 希望使用的视口单位
+      fontViewportUnit: "vw",		// 字体使用的视口单位
+      selectorBlackList: [],	// 需要忽略的CSS选择器，不会转为视口单位，使用原有的px等单位。
+      minPixelValue: 1,		// 设置最小的转换数值，如果为1的话，只有大于1的值会被转换
+      mediaQuery: false,		// 媒体查询里的单位是否需要转换单位
+      replace: true,		// 是否直接更换属性值，而不添加备用属性
+      exclude: /(/|\)(node_modules)(/|\)/,		// 忽略某些文件夹下的文件或特定文件，例如 "node_modules" 下的文件
+     })
+    ]
+   }
+  }
+ },
+
+
+************************************************************
+实现vuepc端自适应方案
+
+lib-flexible + px2remLoader
+lib-flexible 阿里伸缩布局方案
+px2rem-loader：px转rem
+1、安装 lib-flexible和 postcss-px2rem（命令行安装）
+npm install lib-flexible --save-dev
+npm i postcss-px2rem --save
+2, 引入lib-flexible
+在项目入口文件main.js 中引入lib-flexible
+
+import 'lib-flexible'
+
+
+3, 配置postcss-px2rem
+px2rem的配置放在vue-cli3 项目中vue.config.js中，vue cli2 请看下面会提到的一个链接
+
+ css: {
+        loaderOptions: {
+          css: {},
+          postcss: {
+            plugins: [
+              require('postcss-px2rem')({
+                remUnit: 37.5
+              })
+            ]
+          }
+        }
+    }
+
+remUnit配置项
+remUnit根据设计图的尺寸/10，如设计图是1400，remUnit=140
+这里会有第三方ui框架没有适配请参考博主的另外一篇博客
+
+px2rem-loader和lib-flexible，lib-flexible和postcss-pxtorem和第三方框架搭配使用
+
+修改flexible.js
+因为lib-flexible和 postcss-px2rem是针对移动端的源码中写死了设计方案，我们这里在安装好lib-flexible和 postcss-px2rem后全局搜索flexible.js或者refreshRem，flexible.rem总有一个能搜索到的。修改为下面的代码就可以了当然if判断是根据自己需求的
+如下面代码禁掉的是原有的，新加的是但当前浏览器宽小于810则固定为810px宽，这样就实现了vue pc端自适应
+
+    function refreshRem(){
+        var width = docEl.getBoundingClientRect().width;
+        // if (width / dpr > 540) {
+        //     width = 540 * dpr;
+        // }
+        if(width/dpr<810){
+            width = 810 * dpr;
+        }
+        var rem = width / 10;
+        docEl.style.fontSize = rem + 'px';
+        flexible.rem = win.rem = rem;
+    }
+
+
+
+
+
+
+
+
+//大屏幕开发
+https://blog.csdn.net/MrzhangxianshengJS/article/details/84562547?utm_medium=distribute.pc_relevant_t0.none-task-blog-BlogCommendFromMachineLearnPai2-1.nonecase&depth_1-utm_source=distribute.pc_relevant_t0.none-task-blog-BlogCommendFromMachineLearnPai2-1.nonecase
+
+
+
+
+下面介绍最简单的用法
+
+1 下载依赖
+
+npm install postcss-import postcss-loader postcss-px-to-viewport --save-dev
+2 在项目根目录下新建postcss.config.js,配置如下
+
+复制代码
+module.exports = {
+    plugins: {
+        "autoprefixer": {
+            path: ['./src/*']
+        },
+        "postcss-import": {},
+        "postcss-px-to-viewport-opt": {
+            "viewportWidth": "1920", //视窗的宽度，对应的是我们设计稿的宽度
+            "viewportHeight": "1080", // 视窗的高度
+            "unitPrecision": 2, //指定`px`转换为视窗单位值的小数位数(很多时候无法整除)
+            "viewportUnit": "vw", //指定需要转换成的视窗单位，建议使用vw
+            "selectorBlackList": ['#nprogress'], //指定不转换为视窗单位的类
+            "minPixelValue": 1, // 小于或等于`1px`不转换为视窗单位
+            "mediaQuery": false, // 允许在媒体查询中转换`px`
+            // "exclude": /(\/|\\)(node_modules)(\/|\\)/
+        },
+    }
+};
+
+ 
+10 适配移动端和大屏的适配方案
+
+html 标签 font-size 设置13.333334vw
+ 其余标签单位用rem  以375  比例  其余按照设计稿像素/100+rem
+
+
+
+11 大屏适配
+https://www.cnblogs.com/min77/p/14434896.html
+
+Vue +lib-flexible实现大小屏幕，超大屏幕的适配展示。lib-flexible是淘宝项目组开发的插件，属于开源项目，可以在各种项目（vue，react）中引入并使用，利于其将px转成rem的单位转换形式使开发者不用在根据因为分辨率不同书写更多的适配代码。
+
+实现步骤:
+
+1、安装lib-flexible
+
+npm install lib-flexible --save-dev
+
+ 
+
+2、 在main.js中引入lib-flexible
+
+import 'lib-flexible/flexible';
+ 
+ 3、安装 postcss-px2rem
+npm install postcss-px2rem --save-dev
+
+4、配置px2rem-loader
+如果使用的是vue3.x的版本，则需要新建文件vue.config.js，并在此文件配置以下代码
+复制代码
+module.exports = {
+    css: {
+        loaderOptions: {
+            css: {},
+            postcss: {
+                plugins: [
+                    require('postcss-px2rem')({
+                        // 以设计稿1920为例， 1920 / 10 = 192
+                        remUnit: 192
+                    }),
+                ]
+            }
+        }
+    },
+};
+
+当然，除了上面的配置外，在插件源码中refreshRem方法提到当宽度大于540这个特定值时就不再有对应的适配，这里为了使其适配超大屏幕，可以将其删除或注释。
+
+打开./node_modules/lib-flexible/flexible.js，找到如下片段源码：
+
+复制代码
+function refreshRem(){
+    var width = docEl.getBoundingClientRect().width;
+    //if (width / dpr > 540) {
+    //  width = 540 * dpr;
+    //}
+    var rem = width / 10;
+    docEl.style.fontSize = rem + 'px';
+    flexible.rem = win.rem = rem;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
